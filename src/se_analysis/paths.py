@@ -51,12 +51,12 @@ def _find_downloads() -> Path:
 REPO_ROOT = _find_repo_root()
 NOTEBOOKS_DIR = REPO_ROOT / "notebooks"
 DOWNLOADS_DIR = _find_downloads()
-WORKSPACE_DIR = "/mnt/jupyter_data/workspace"
+PROJECTS_DIR = Path("/mnt/jupyter_data/workspace")
 
 
 def project(*parts: str) -> Path:
-    """Absolute path under workspace/, e.g. project("Keene-Branch_FL", "data.dat")."""
-    return WORKSPACE_DIR.joinpath(*parts)
+    """Absolute path under PROJECTS_DIR, e.g. project("Keene-Branch_FL", "data.dat")."""
+    return PROJECTS_DIR.joinpath(*parts)
 
 
 def download(*parts: str) -> Path:
