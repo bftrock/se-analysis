@@ -228,14 +228,18 @@ def availability(
         # silently and be measured as nanoseconds.
         stamps = [c for c in data.columns if "timestamp" in str(c).lower()]
         hint = f"; set_index({stamps[0]!r}) first" if stamps else ""
-        raise TypeError(f"data must have a DatetimeIndex, got {type(index).__name__}{hint}")
+        raise TypeError(
+            f"data must have a DatetimeIndex, got {type(index).__name__}{hint}"
+        )
 
     if interval is None:
         interval = sampling_interval(index)
     if isinstance(interval, (int, float)):
         # pd.Timedelta reads a bare number as nanoseconds, which is never what
         # anyone means by a sampling interval.
-        raise TypeError(f"interval must be a Timedelta or a string like '10min', not {interval!r}")
+        raise TypeError(
+            f"interval must be a Timedelta or a string like '10min', not {interval!r}"
+        )
     interval = pd.Timedelta(interval)
     if pd.isna(interval) or interval <= pd.Timedelta(0):
         raise ValueError(
@@ -274,7 +278,9 @@ def availability(
         for run in runs
         if len(run)
     ]
-    return percent, pd.DataFrame(rows, columns=["start", "end", "duration", "n_missing"])
+    return percent, pd.DataFrame(
+        rows, columns=["start", "end", "duration", "n_missing"]
+    )
 
 
 def _segments(index: pd.DatetimeIndex, gap_factor: float) -> list[tuple[int, int]]:
@@ -738,9 +744,10 @@ def check_solar_angles(data: pd.DataFrame, angles: SolarAngles) -> pd.DataFrame:
     computed = solar.position(data.index - offset, latitude, longitude)
     misses = {}
     for angle, column in recorded.items():
-        miss = computed[angle].to_numpy() - pd.to_numeric(
-            data[column], errors="coerce"
-        ).to_numpy()
+        miss = (
+            computed[angle].to_numpy()
+            - pd.to_numeric(data[column], errors="coerce").to_numpy()
+        )
         if angle == "azimuth":  # wraps at 360, so compare the short way round
             miss = (miss + 180.0) % 360.0 - 180.0
         misses[column] = (angle, np.abs(miss))

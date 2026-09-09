@@ -30,10 +30,10 @@ SURFACE = "#fcfcfb"
 # figure is scaled down; a grid that cannot be seen is a grid that is not there.
 # Kept deliberately lighter than AXIS (1.75:1) so the spine stays the stronger
 # line and the anatomy still has a hierarchy.
-GRID = "#cfcdc1"      # hairline, solid; dashing a grid reads as data
+GRID = "#cfcdc1"  # hairline, solid; dashing a grid reads as data
 AXIS = "#c3c2b7"
-MUTED = "#898781"     # axis and tick text
-INK = "#0b0b0b"       # titles
+MUTED = "#898781"  # axis and tick text
+INK = "#0b0b0b"  # titles
 
 # Fixed colour and dash per statistic, so a statistic keeps its identity from one
 # file to the next: Min stays violet whether the logger reports Min/Max alone
@@ -54,17 +54,17 @@ INK = "#0b0b0b"       # titles
 # documented relief of visible labels, which is why the legend is not optional.
 # The dashes are secondary encoding: identity never rests on hue alone.
 STATISTIC_STYLE = {
-    "Avg":     ("#2a78d6", "-",  2.0),  # blue    4.30:1  read first, so drawn heaviest
-    "Average": ("#2a78d6", "-",  2.0),
-    "Min":     ("#4a3aa7", "--", 1.6),  # violet  8.33:1  dashed pair with Max --
-    "Max":     ("#008300", "--", 1.6),  # green   4.82:1  together they read as the envelope
-    "SD":      ("#e87ba4", ":",  1.6),  # magenta 2.62:1  relief: legend
-    "StdDev":  ("#e87ba4", ":",  1.6),
+    "Avg": ("#2a78d6", "-", 2.0),  # blue    4.30:1  read first, so drawn heaviest
+    "Average": ("#2a78d6", "-", 2.0),
+    "Min": ("#4a3aa7", "--", 1.6),  # violet  8.33:1  dashed pair with Max --
+    "Max": ("#008300", "--", 1.6),  # green   4.82:1  together they read as the envelope
+    "SD": ("#e87ba4", ":", 1.6),  # magenta 2.62:1  relief: legend
+    "StdDev": ("#e87ba4", ":", 1.6),
     # The fifth slot a channel may carry. No channel ever carries two of these at
     # once, so they can share one hue without ever colliding on an axes.
-    "Sum":     ("#eda100", "-.", 1.6),  # yellow  2.11:1  relief: legend
-    "Total":   ("#eda100", "-.", 1.6),
-    "Gust":    ("#eda100", "-.", 1.6),
+    "Sum": ("#eda100", "-.", 1.6),  # yellow  2.11:1  relief: legend
+    "Total": ("#eda100", "-.", 1.6),
+    "Gust": ("#eda100", "-.", 1.6),
     "NotUsed": ("#eda100", "-.", 1.6),
 }
 
@@ -107,7 +107,15 @@ DENSE_THRESHOLD = 400
 # "Samples" is deliberately absent -- a onesecond channel has one column, and
 # reading it as a plain signal keeps the units in the title.
 STATISTICS = (
-    "Avg", "Average", "Min", "Max", "SD", "StdDev", "Sum", "Total", "Gust",
+    "Avg",
+    "Average",
+    "Min",
+    "Max",
+    "SD",
+    "StdDev",
+    "Sum",
+    "Total",
+    "Gust",
     "NotUsed",
 )
 
@@ -127,8 +135,18 @@ PRIMARY_STATISTICS = ("Avg", "Average")
 
 # Reading order for the legend, kept independent of draw order: the primary is
 # drawn last for z-order but belongs first in the key.
-LEGEND_ORDER = ("Avg", "Average", "Min", "Max", "Gust", "Sum", "Total",
-                "NotUsed", "SD", "StdDev")
+LEGEND_ORDER = (
+    "Avg",
+    "Average",
+    "Min",
+    "Max",
+    "Gust",
+    "Sum",
+    "Total",
+    "NotUsed",
+    "SD",
+    "StdDev",
+)
 
 
 def chart_style() -> dict:
@@ -138,32 +156,34 @@ def chart_style() -> dict:
     plotting a signal never reaches out and restyles the rest of a notebook.
     """
     style = sns.axes_style("whitegrid")
-    style.update({
-        "figure.facecolor": SURFACE,
-        "axes.facecolor": SURFACE,
-        "axes.edgecolor": AXIS,
-        "axes.linewidth": 0.8,
-        "axes.labelcolor": MUTED,
-        "axes.titlecolor": INK,
-        "axes.titlesize": 10.5,
-        "axes.titlelocation": "left",
-        "axes.titlepad": 8,
-        "grid.color": GRID,
-        "grid.linestyle": "-",   # solid hairline; a dashed grid competes with the data
-        "grid.linewidth": 0.8,
-        "xtick.color": MUTED,
-        "ytick.color": MUTED,
-        "xtick.labelsize": 8.5,
-        "ytick.labelsize": 8.5,
-        "legend.frameon": False,
-        "legend.fontsize": 8.5,
-        "legend.labelcolor": MUTED,   # text wears ink, the line-key carries identity
-        "lines.solid_capstyle": "round",
-        "lines.dash_capstyle": "round",
-        "font.family": "sans-serif",
-        "font.sans-serif": ["Segoe UI", "DejaVu Sans", "sans-serif"],
-        "figure.dpi": 110,
-    })
+    style.update(
+        {
+            "figure.facecolor": SURFACE,
+            "axes.facecolor": SURFACE,
+            "axes.edgecolor": AXIS,
+            "axes.linewidth": 0.8,
+            "axes.labelcolor": MUTED,
+            "axes.titlecolor": INK,
+            "axes.titlesize": 10.5,
+            "axes.titlelocation": "left",
+            "axes.titlepad": 8,
+            "grid.color": GRID,
+            "grid.linestyle": "-",  # solid hairline; a dashed grid competes with the data
+            "grid.linewidth": 0.8,
+            "xtick.color": MUTED,
+            "ytick.color": MUTED,
+            "xtick.labelsize": 8.5,
+            "ytick.labelsize": 8.5,
+            "legend.frameon": False,
+            "legend.fontsize": 8.5,
+            "legend.labelcolor": MUTED,  # text wears ink, the line-key carries identity
+            "lines.solid_capstyle": "round",
+            "lines.dash_capstyle": "round",
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Segoe UI", "DejaVu Sans", "sans-serif"],
+            "figure.dpi": 110,
+        }
+    )
     return style
 
 
@@ -189,7 +209,9 @@ def _split_statistic(column: str, statistics) -> tuple[str, str]:
     return column, ""
 
 
-def group_signals(data: pd.DataFrame, statistics=STATISTICS) -> dict[str, dict[str, str]]:
+def group_signals(
+    data: pd.DataFrame, statistics=STATISTICS
+) -> dict[str, dict[str, str]]:
     """Map each signal to its {statistic: column}, keeping the frame's column order.
 
     A signal with no statistics gets a single entry keyed by "". Statistics are
@@ -227,8 +249,14 @@ def _choose_statistic(members: dict[str, str], wanted: str | None):
     return first, members[first]
 
 
-def _draw(axes, label: str, values: pd.Series, style: tuple, samples: int,
-          dashes_are_identity: bool = False) -> None:
+def _draw(
+    axes,
+    label: str,
+    values: pd.Series,
+    style: tuple,
+    samples: int,
+    dashes_are_identity: bool = False,
+) -> None:
     """One line, styled by the caller and thinned by how dense the data is."""
     color, dashes, width = style
 
@@ -236,8 +264,9 @@ def _draw(axes, label: str, values: pd.Series, style: tuple, samples: int,
     if samples <= MARKER_THRESHOLD:
         # sparse enough that the samples themselves are worth seeing, with a
         # surface ring so overlapping markers stay legible
-        marks = dict(marker="o", markersize=5, markeredgecolor=SURFACE,
-                     markeredgewidth=1.2)
+        marks = dict(
+            marker="o", markersize=5, markeredgecolor=SURFACE, markeredgewidth=1.2
+        )
     if samples > DENSE_THRESHOLD:
         # thinning always helps; flattening to solid only when the dash is
         # reinforcement, never when it is the only thing telling two lines apart
@@ -245,16 +274,22 @@ def _draw(axes, label: str, values: pd.Series, style: tuple, samples: int,
         if not dashes_are_identity:
             dashes = "-"
 
-    axes.plot(values.index, values.to_numpy(dtype=float), label=label,
-              color=color, linestyle=dashes, linewidth=width,
-              solid_capstyle="round", **marks)
+    axes.plot(
+        values.index,
+        values.to_numpy(dtype=float),
+        label=label,
+        color=color,
+        linestyle=dashes,
+        linewidth=width,
+        solid_capstyle="round",
+        **marks,
+    )
 
 
 def _legend_outside(axes, handles=None, labels=None) -> None:
     """The key, parked to the right so overlapping lines are never occluded."""
     args = () if handles is None else (handles, labels)
-    axes.legend(*args, loc="upper left", bbox_to_anchor=(1.01, 1.0),
-                borderaxespad=0)
+    axes.legend(*args, loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0)
 
 
 def _finish(axes) -> None:
@@ -269,13 +304,21 @@ def _finish(axes) -> None:
 def _report_skipped(skipped) -> None:
     """Name what was dropped, so nothing disappears silently."""
     if skipped:
-        print(f"skipped {len(skipped)} column(s) with no numeric data: "
-              f"{', '.join(map(str, skipped[:6]))}"
-              f"{' ...' if len(skipped) > 6 else ''}")
+        print(
+            f"skipped {len(skipped)} column(s) with no numeric data: "
+            f"{', '.join(map(str, skipped[:6]))}"
+            f"{' ...' if len(skipped) > 6 else ''}"
+        )
 
 
-def plot_signals(data: pd.DataFrame, columns=None, statistics=STATISTICS,
-                 title: str = "", figsize: tuple = (10, 3), show: bool = True):
+def plot_signals(
+    data: pd.DataFrame,
+    columns=None,
+    statistics=STATISTICS,
+    title: str = "",
+    figsize: tuple = (10, 3),
+    show: bool = True,
+):
     """One axes per signal, with every statistic of that signal drawn on it.
 
     `columns` restricts and orders what is plotted -- pass
@@ -312,9 +355,13 @@ def plot_signals(data: pd.DataFrame, columns=None, statistics=STATISTICS,
 
             stacked = len(order) > 1
             figure, drawn = plt.subplots(
-                len(order), 1, sharex=True, constrained_layout=True,
+                len(order),
+                1,
+                sharex=True,
+                constrained_layout=True,
                 figsize=(figsize[0], figsize[1] * (1.35 if stacked else 1.0)),
-                gridspec_kw={"height_ratios": [2.4, 1]} if stacked else None)
+                gridspec_kw={"height_ratios": [2.4, 1]} if stacked else None,
+            )
             all_axes = list(drawn) if stacked else [drawn]
 
             samples = len(frame.index)
@@ -322,17 +369,24 @@ def plot_signals(data: pd.DataFrame, columns=None, statistics=STATISTICS,
                 series = panels[panel]
                 # False sorts first, so the primary is drawn last and lands on top
                 for statistic in sorted(series, key=lambda s: s in PRIMARY_STATISTICS):
-                    style = (STATISTIC_STYLE.get(statistic, FALLBACK_STYLE)
-                             if statistic else PLAIN_STYLE)
+                    style = (
+                        STATISTIC_STYLE.get(statistic, FALLBACK_STYLE)
+                        if statistic
+                        else PLAIN_STYLE
+                    )
                     # a lone line is labelled by its signal, having no statistic
-                    _draw(axes, statistic or signal, series[statistic], style,
-                          samples)
+                    _draw(axes, statistic or signal, series[statistic], style, samples)
                 if len(series) > 1:
                     rank = {name: i for i, name in enumerate(LEGEND_ORDER)}
-                    keys = sorted(zip(*axes.get_legend_handles_labels()[::-1]),
-                                  key=lambda pair: rank.get(pair[0], len(rank)))
-                    _legend_outside(axes, [handle for _, handle in keys],
-                                    [label for label, _ in keys])
+                    keys = sorted(
+                        zip(*axes.get_legend_handles_labels()[::-1]),
+                        key=lambda pair: rank.get(pair[0], len(rank)),
+                    )
+                    _legend_outside(
+                        axes,
+                        [handle for _, handle in keys],
+                        [label for label, _ in keys],
+                    )
                 elif panel == "spread":
                     # one series needs no legend; the axis label names it
                     axes.set_ylabel(next(iter(series)))
@@ -352,9 +406,15 @@ def plot_signals(data: pd.DataFrame, columns=None, statistics=STATISTICS,
     return figures if not show else None
 
 
-def plot_together(data: pd.DataFrame, columns, statistic: str | None = None,
-                  statistics=STATISTICS, title: str = "",
-                  figsize: tuple = (10, 4), show: bool = True):
+def plot_together(
+    data: pd.DataFrame,
+    columns,
+    statistic: str | None = None,
+    statistics=STATISTICS,
+    title: str = "",
+    figsize: tuple = (10, 4),
+    show: bool = True,
+):
     """Several signals overlaid on one axes, coloured by signal.
 
     For the questions `plot_signals` cannot answer because its signals live in
@@ -394,8 +454,10 @@ def plot_together(data: pd.DataFrame, columns, statistic: str | None = None,
             signal, found = _split_statistic(name, statistics)
             chosen.append((signal, found, lookup[name]))
         else:
-            raise KeyError(f"{name!r} is neither a signal nor a column; "
-                           f"group_signals(data) lists the signals")
+            raise KeyError(
+                f"{name!r} is neither a signal nor a column; "
+                f"group_signals(data) lists the signals"
+            )
 
     drawable, skipped = [], []
     for signal, found, column in chosen:
@@ -406,8 +468,10 @@ def plot_together(data: pd.DataFrame, columns, statistic: str | None = None,
             skipped.append(column)
 
     if missing:
-        print(f"skipped {len(missing)} signal(s) carrying no {statistic}: "
-              f"{', '.join(missing)}")
+        print(
+            f"skipped {len(missing)} signal(s) carrying no {statistic}: "
+            f"{', '.join(missing)}"
+        )
     _report_skipped(skipped)
     if not drawable:
         return None
@@ -426,10 +490,11 @@ def plot_together(data: pd.DataFrame, columns, statistic: str | None = None,
     with plt.rc_context(chart_style()):
         figure, axes = plt.subplots(figsize=figsize, constrained_layout=True)
         for position, (signal, found, values) in enumerate(drawable):
-            style = (SIGNAL_PALETTE[position % len(SIGNAL_PALETTE)],
-                     SIGNAL_DASHES[position // len(SIGNAL_PALETTE)
-                                   % len(SIGNAL_DASHES)],
-                     SIGNAL_WIDTH)
+            style = (
+                SIGNAL_PALETTE[position % len(SIGNAL_PALETTE)],
+                SIGNAL_DASHES[position // len(SIGNAL_PALETTE) % len(SIGNAL_DASHES)],
+                SIGNAL_WIDTH,
+            )
             label = f"{signal} {found}".strip() if mixed else signal
             _draw(axes, label, values, style, samples, dashes_are_identity=identity)
 

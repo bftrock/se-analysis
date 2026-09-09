@@ -1,0 +1,10 @@
+{
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    },
+    "black-formatter.importStrategy": "fromEnvironment",
+    // Notebooks are excluded from black; leave their cells alone on save.
+    "notebook.formatOnSave.enabled": false,
+    "notebook.defaultFormatter": null
+}
