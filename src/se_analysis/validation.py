@@ -428,10 +428,19 @@ def check_stalls(
     data: pd.DataFrame,
     signals,
     max_stall: pd.Timedelta = DEFAULT_MAX_STALL,
+    stall_windows: dict | None = None,
     decimals: int | None = None,
     gap_factor: float = DEFAULT_GAP_FACTOR,
 ) -> pd.DataFrame:
-    """Flag signals expected to keep moving that held a value. One finding per run."""
+    """Flag signals expected to keep moving that held a value. One finding per run.
+
+    `max_stall` is the window every signal is held to; `stall_windows` maps the
+    signals that need their own to the window they get. A coarsely quantised
+    signal -- barometric pressure reported to 0.1 hPa, say -- legitimately sits
+    on one value for minutes at a time, and wants a window of its own rather
+    than a looser default that would also hide a dead irradiance channel.
+    """
+    stall_windows = stall_windows or {}
     rows = []
     for signal in signals:
         if signal not in data.columns:
@@ -439,7 +448,7 @@ def check_stalls(
         runs = stall_runs(
             data,
             signal,
-            max_stall=max_stall,
+            max_stall=stall_windows.get(signal, max_stall),
             decimals=decimals,
             gap_factor=gap_factor,
         )
@@ -464,10 +473,13 @@ def check_constants(
     signals,
     zero_tol: float = 1e-9,
     eps: float = 0.0,
-    expected: dict | None = None,
 ) -> pd.DataFrame:
-    """Flag signals that should hold one non-zero value all file long but do not."""
-    expected = expected or {}
+    """Flag signals that should hold one non-zero value all file long but do not.
+
+    Which value is not the question here -- a serial number reads whatever the
+    logger was given. For a signal that has to sit at a value you can name, use
+    check_expected instead.
+    """
     rows = []
 
     for signal in signals:
@@ -504,21 +516,12 @@ def check_constants(
             nonzero = str(s.iloc[0]).strip() not in {"", "0", "0.0", "None", "nan"}
             value = s.iloc[0]
 
-        ok_expected = True
-        if signal in expected:
-            ok_expected = (
-                abs(float(value) - float(expected[signal])) <= max(eps, zero_tol)
-                if is_numeric
-                else str(value) == str(expected[signal])
-            )
-
         problems = list(
             filter(
                 None,
                 [
                     None if constant else "changes",
                     None if nonzero else "zero/blank",
-                    None if ok_expected else f"!= expected {expected.get(signal)}",
                     None if n_nan == 0 else f"{n_nan} NaN",
                 ],
             )
@@ -540,6 +543,77 @@ def check_constants(
         )
 
     return _findings(rows)
+
+
+def _matches(values: pd.Series, want, eps: float = 0.0) -> np.ndarray:
+    """Elementwise "reads `want`", numerically where both sides are numbers.
+
+    Missing and non-numeric values never match, so a dropout counts as a
+    deviation rather than quietly passing.
+    """
+    num = pd.to_numeric(values, errors="coerce")
+    target = pd.to_numeric(pd.Series([want]), errors="coerce").iloc[0]
+    if pd.notna(target) and bool(num.notna().any()):
+        return ((num - target).abs() <= eps).to_numpy()
+    return (values.astype(str) == str(want)).to_numpy()
+
+
+def check_expected(
+    data: pd.DataFrame, expected: dict, eps: float = 0.0
+) -> pd.DataFrame:
+    """Flag signals that should read one named value throughout but do not.
+
+    Where the constant check only asks that a signal never move, this says what
+    it has to read: a ventilator fan wired to run all the time is broken whether
+    it sits at 0 for the whole file or drops out for an hour in the middle.
+    Numeric values compare within `eps`, anything else as text.
+
+    One finding per signal, spanning the rows that deviate -- the rows
+    themselves are expected_deviations().
+    """
+    rows = []
+    for signal, want in expected.items():
+        if signal not in data.columns:
+            continue
+        column = data[signal]
+        bad = ~_matches(column, want, eps)
+        n_bad = int(bad.sum())
+        if n_bad == 0:
+            continue
+
+        off = column[bad]
+        n_missing = int(off.isna().sum())
+        others = sorted(off.dropna().astype(str).unique().tolist())[:5]
+        detail = "; ".join(
+            filter(
+                None,
+                [
+                    (
+                        f"{n_bad - n_missing} value(s) != {want} (saw {others})"
+                        if others
+                        else None
+                    ),
+                    f"{n_missing} missing" if n_missing else None,
+                ],
+            )
+        )
+        rows.append(
+            {
+                "check": "expected",
+                "signal": signal,
+                "detail": detail,
+                "value": off.dropna().iloc[0] if n_bad > n_missing else None,
+                **_span(data.index, bad),
+            }
+        )
+    return _findings(rows)
+
+
+def expected_deviations(
+    data: pd.DataFrame, signal: str, value, eps: float = 0.0
+) -> pd.DataFrame:
+    """The rows where `signal` does not read `value` -- for eyeballing a failure."""
+    return data.loc[~_matches(data[signal], value, eps), [signal]]
 
 
 def check_sentinel(
@@ -821,6 +895,11 @@ class Spec:
 
     Sources ship a standard spec (see se_analysis.protonode.SPEC); notebooks call
     override() for whatever a given site does differently.
+
+    `constant` lists the signals that must not move, whatever they happen to
+    read; `expected` is the {signal: value} map for the ones that must read
+    something specific. Being a dict, `expected` merges on override(), so a
+    notebook can pin one more signal without restating the rest.
     """
 
     ranges: dict = field(default_factory=dict)
@@ -832,6 +911,7 @@ class Spec:
     solar: "SolarAngles | None" = None
     expected: dict = field(default_factory=dict)
     max_stall: pd.Timedelta = DEFAULT_MAX_STALL
+    stall_windows: dict = field(default_factory=dict)
     sentinel_value: object = DEFAULT_SENTINEL
     gap_factor: float = DEFAULT_GAP_FACTOR
 
@@ -856,6 +936,7 @@ class Spec:
             "lesser": [_pair_label(a, b) for a, b in self.lesser],
             "stall": list(self.dynamic),
             "constant": list(self.constant),
+            "expected": list(self.expected),
             "sentinel": list(self.sentinel),
             "utc": [ALL_SIGNALS] if self.solar else [],
             "clock": [ALL_SIGNALS] if self.solar else [],
@@ -866,7 +947,11 @@ class Spec:
 def missing_signals(data: pd.DataFrame, spec: Spec) -> pd.DataFrame:
     """Flag signals the spec expects that the file does not contain."""
     wanted = (
-        set(spec.ranges) | set(spec.dynamic) | set(spec.constant) | set(spec.sentinel)
+        set(spec.ranges)
+        | set(spec.dynamic)
+        | set(spec.constant)
+        | set(spec.expected)
+        | set(spec.sentinel)
     )
     for left, right in list(spec.equivalent) + list(spec.lesser):
         wanted |= {left, right}
@@ -901,9 +986,11 @@ def validate(data: pd.DataFrame, spec: Spec) -> pd.DataFrame:
                 data,
                 spec.dynamic,
                 max_stall=spec.max_stall,
+                stall_windows=spec.stall_windows,
                 gap_factor=spec.gap_factor,
             ),
-            check_constants(data, spec.constant, expected=spec.expected),
+            check_constants(data, spec.constant),
+            check_expected(data, spec.expected),
             check_sentinel(data, spec.sentinel, sentinel=spec.sentinel_value),
             check_solar_angles(data, spec.solar) if spec.solar else _findings([]),
         ],

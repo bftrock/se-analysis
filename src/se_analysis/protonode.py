@@ -117,6 +117,7 @@ DYNAMIC = (
     "POA_ClassA_Temp",
     "POA_Tilt_ClassA",
     "RefCell_1",
+    "RefCell_Temp_1",
     "G_Clean_uncorrected",
     "G_Soiled_uncorrected",
     "BOM_Temp_Clean",
@@ -133,16 +134,26 @@ CONSTANT = (
     "GHI_SN",
     "SPN1_Mult",
     "GHI_Mult_1",
+    "Isc_STC_Clean",
+    "Isc_STC_Soiled",
     "POA_SN_1",
     "POA_Mult_1",
     "Site_Latitude",
     "Site_Longitude",
 )
 
+# Signals that should sit at one particular value all file long. A ventilator
+# fan reads 1 while it is running, so anything else is the fan having stopped.
+EXPECTED = {
+    "VentGHI_FanStatus_1": 1,
+    "VentPOA_FanStatus_2": 1,
+}
+
 # Signals expected to read the invalid-data sentinel (-99) throughout
 SENTINEL = (
     "MetSENS500_SN",
     "Wind_Quality",
+    "Shunt_Res_c",
 )
 
 # The angles the logger works out for itself, checked against a position computed
@@ -164,6 +175,7 @@ SPEC = Spec(
     lesser=LESSER,
     dynamic=DYNAMIC,
     constant=CONSTANT,
+    expected=EXPECTED,
     sentinel=SENTINEL,
     solar=SOLAR,
 )
