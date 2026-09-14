@@ -6,17 +6,17 @@ The environment is managed with `uv`, a fast package and environment manager. To
 
 1. Install VS Code. Download and run the installer. You don't need admin privs to do this; you can run it under your profile if you prefer.
 2. Install these VS Code extensions:
-   1. Claude Code for VS Code
-   2. Data Wrangler
-   3. Jupyter
-   4. Jupyter Cell Tags
-   5. Jupyter Key Map
-   6. Jupyter Notebook Renderers
-   7. Jupyter Slide Show
-   8. Pylance
-   9. Python
-   10. Python Debugger
-   11. Python Environments
+   - Claude Code for VS Code
+   - Data Wrangler
+   - Jupyter
+   - Jupyter Cell Tags
+   - Jupyter Key Map
+   - Jupyter Notebook Renderers
+   - Jupyter Slide Show
+   - Pylance
+   - Python
+   - Python Debugger
+   - Python Environments
 3. Install `uv`. Run this with PowerShell: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`. If given the option, make sure `uv` is in your PATH so you can run commands with it.
 4. Clone this repo to your local system in the location of your choice.
 5. Create the environment specified in `pyproject.toml`: `uv sync`
