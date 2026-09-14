@@ -174,6 +174,111 @@ def deviation(
     return np.sqrt(np.sum(np.square(misses), axis=0))
 
 
+# The window irradiance is normalized over: two hours either side of solar noon.
+# Near noon the sun is highest and moving slowest across the sky, so cosine
+# response, soiling and small levelling errors all cost least there, and the
+# symmetry about noon means much of what is left of them cancels across the
+# window.
+NORMALIZATION_HALF_WIDTH = pd.Timedelta("2h")
+
+# What the site's position has to be inside to read as a position at all. A
+# header field left blank or filled with a placeholder is worth failing on
+# rather than quietly putting the site on the equator.
+_LATITUDE_LIMITS = (-90.0, 90.0)
+_LONGITUDE_LIMITS = (-180.0, 180.0)
+
+
+def _label(key) -> str:
+    """A Site_info label reduced to the form the lookups below are written in."""
+    return str(key).strip().rstrip(":").replace("_", " ").lower()
+
+
+def _site_coordinates(site_info) -> tuple[float, float]:
+    """(latitude, longitude) in degrees, from Site_info in either of its forms.
+
+    Takes what nrgpy hands back as `LogrRead.Site_info` -- the flat two-column
+    key/value frame -- or the dict logr.parse_site_info() reduces it to. Labels
+    are matched without their trailing colon and without regard to case, so
+    "Latitude:", "latitude" and "Site_Latitude" all read.
+    """
+    if isinstance(site_info, pd.DataFrame):
+        rows = site_info.dropna(subset=site_info.columns[0])
+        fields = dict(zip(rows.iloc[:, 0], rows.iloc[:, 1]))
+    else:
+        fields = dict(site_info)
+    fields = {_label(key): value for key, value in fields.items()}
+
+    position = []
+    for name, (lo, hi) in (
+        ("latitude", _LATITUDE_LIMITS),
+        ("longitude", _LONGITUDE_LIMITS),
+    ):
+        raw = fields.get(name, fields.get(f"site {name}"))
+        value = pd.to_numeric(raw, errors="coerce")
+        if raw is None:
+            raise KeyError(f"Site_info carries no {name}")
+        if not np.isfinite(value) or not lo <= value <= hi:
+            raise ValueError(f"Site_info {name} is not a position: {raw!r}")
+        position.append(float(value))
+    return tuple(position)
+
+
+def _solar_noon(date, longitude: float) -> pd.Timestamp:
+    """When the sun crosses the meridian at `longitude` on `date`, tz-naive UTC.
+
+    Solar noon is where the hour angle is zero, which _hour_angle puts at a true
+    solar time of 720 minutes -- so it is 12:00 walked back by the four minutes a
+    degree of longitude is worth, and by the equation of time. That last term
+    depends on the moment being solved for, so it is re-read at the first answer
+    and the solve repeated; it moves under half a minute a day, which leaves the
+    second pass settled to well inside a second.
+    """
+    stamp = pd.Timestamp(date)
+    if stamp.tz is not None:
+        stamp = stamp.tz_convert("UTC").tz_localize(None)
+    midnight = stamp.normalize()
+
+    noon = midnight + pd.Timedelta(hours=12)
+    for _ in range(2):
+        jd = pd.DatetimeIndex([noon]).to_julian_date().to_numpy(dtype=float)
+        _, eot = _ecliptic(jd)
+        noon = midnight + pd.Timedelta(minutes=720.0 - float(eot[0]) - 4.0 * longitude)
+    # to the second, which is finer than the equation of time is worth anyway and
+    # spares the caller a nanosecond tail that means nothing
+    return noon.round("1s")
+
+
+def get_normalization_window(
+    site_info,
+    date,
+    half_width: pd.Timedelta = NORMALIZATION_HALF_WIDTH,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """The four hours centred on solar noon at the site, as (start, end) in UTC.
+
+    `site_info` is the header metadata nrgpy exposes as `LogrRead.Site_info`, or
+    the dict logr.parse_site_info() reduces it to; either carries the Latitude
+    and Longitude the window is placed from.
+
+    `date` is anything pandas reads as a date and is taken as a *UTC* calendar
+    date -- a tz-aware stamp is converted before the date is read off it. That is
+    the same date the site keeps everywhere except the far east and west of the
+    map, where a local date and a UTC one can differ by a day.
+
+    Both ends come back tz-aware in UTC, ready to slice an index already shifted
+    there -- infer_utc_offset() is what tells you by how much. The window spans
+    `half_width` either side of noon, two hours by default, so widening it is a
+    matter of passing a longer one rather than moving the ends by hand.
+
+    Only longitude places the window: solar noon is a meridian crossing, and
+    latitude does not enter into when one happens. It is still read, so a header
+    that cannot say where the site is fails here rather than at the next step.
+    """
+    _, longitude = _site_coordinates(site_info)
+    noon = _solar_noon(date, longitude).tz_localize("UTC")
+    half = pd.Timedelta(half_width)
+    return noon - half, noon + half
+
+
 # How far either side of the analytic estimate the refinement sweep looks, and
 # how finely. Wide enough to cover the estimate going soft near solar noon.
 _REFINE_SPAN = pd.Timedelta("5min")
