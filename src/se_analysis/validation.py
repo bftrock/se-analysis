@@ -673,26 +673,39 @@ def sentinel_deviations(
 
 @dataclass(frozen=True)
 class SolarAngles:
-    """Which columns carry the site position and the logger's own solar angles.
+    """Where the site is, and which columns carry the logger's own solar angles.
 
     Column names are source-specific, so a source supplies them -- see
     se_analysis.protonode.SOLAR.
+
+    `latitude` and `longitude` are each either the name of a column carrying the
+    position the file was configured with, or that position itself as a number.
+    Both spellings occur: a ProtoNode export repeats the coordinates on every
+    row, where a LOGR measurement file states them once in its header and never
+    in its data (see se_analysis.measurement.solar_angles).
 
     `utc_offset` left as None means work the offset out from the angles
     themselves, which is what makes the check usable on files whose stamps are in
     whatever timezone the technician's laptop was set to. Pin it to
     pd.Timedelta(0) to insist on UTC and have anything else read as an angle
     error instead of a timezone.
+
+    `refract` says whether the recorded angles are apparent or geometric -- that
+    is, whether whatever computed them lifted the sun over the horizon the way
+    the atmosphere does. It is a property of the logger's algorithm rather than a
+    tolerance to be widened: the difference runs to half a degree near the
+    horizon, which is the whole error budget and more.
     """
 
-    latitude: str
-    longitude: str
+    latitude: str | float
+    longitude: str | float
     zenith: str | None = None
     elevation: str | None = None
     azimuth: str | None = None
     tolerance: float = DEFAULT_SOLAR_TOLERANCE
     utc_offset: pd.Timedelta | None = None
     max_clock_skew: pd.Timedelta = solar.DEFAULT_MAX_CLOCK_SKEW
+    refract: bool = True
 
     def override(self, **changes) -> "SolarAngles":
         """A copy with `changes` applied."""
@@ -708,28 +721,46 @@ class SolarAngles:
         return {angle: column for angle, column in named.items() if column}
 
     def columns(self) -> list[str]:
-        """Every column the check needs present."""
-        return [self.latitude, self.longitude, *self.angles().values()]
+        """Every column the check needs present.
+
+        A coordinate given as a number is not a column and does not belong here:
+        a file stating its position in its header rather than its data is not a
+        file missing a signal.
+        """
+        position = [c for c in (self.latitude, self.longitude) if isinstance(c, str)]
+        return [*position, *self.angles().values()]
+
+
+def _coordinate(data: pd.DataFrame, where, limits: tuple) -> float | None:
+    """One coordinate, read out of a column of `data` or given outright.
+
+    A column has to be present, numeric and unchanging for a computed position
+    to mean anything; a number has only to be a position. check_constants and
+    check_ranges are what report a coordinate column being otherwise, so this
+    only decides whether the solar check can run.
+    """
+    lo, hi = limits
+    if isinstance(where, str):
+        if where not in data.columns:
+            return None
+        values = pd.to_numeric(data[where], errors="coerce").dropna().unique()
+        if len(values) != 1:
+            return None
+        where = values[0]
+    value = float(where)
+    return value if lo <= value <= hi else None
 
 
 def _site_position(data: pd.DataFrame, angles: SolarAngles) -> tuple:
-    """The one latitude and longitude the file claims, or (None, None).
+    """The latitude and longitude the recorded angles get checked against.
 
-    Both have to be present, numeric and unchanging for a computed position to
-    mean anything. check_constants and check_ranges are what report them being
-    otherwise, so this only decides whether the solar check can run.
+    (None, None) unless both resolve, since neither alone places the sun.
     """
-    for column, limits in ((angles.latitude, LATITUDE), (angles.longitude, LONGITUDE)):
-        if column not in data.columns:
-            return None, None
-        values = pd.to_numeric(data[column], errors="coerce").dropna().unique()
-        lo, hi = limits
-        if len(values) != 1 or not (lo <= values[0] <= hi):
-            return None, None
-    return (
-        float(pd.to_numeric(data[angles.latitude]).iloc[0]),
-        float(pd.to_numeric(data[angles.longitude]).iloc[0]),
-    )
+    latitude = _coordinate(data, angles.latitude, LATITUDE)
+    longitude = _coordinate(data, angles.longitude, LONGITUDE)
+    if latitude is None or longitude is None:
+        return None, None
+    return latitude, longitude
 
 
 def solar_offset(data: pd.DataFrame, angles: SolarAngles) -> pd.Timedelta:
@@ -751,6 +782,7 @@ def solar_offset(data: pd.DataFrame, angles: SolarAngles) -> pd.Timedelta:
         longitude,
         data[recorded["elevation"]],
         None if azimuth is None else data[azimuth],
+        refract=angles.refract,
     )
 
 
@@ -815,7 +847,9 @@ def check_solar_angles(data: pd.DataFrame, angles: SolarAngles) -> pd.DataFrame:
             ]
         )
 
-    computed = solar.position(data.index - offset, latitude, longitude)
+    computed = solar.position(
+        data.index - offset, latitude, longitude, refract=angles.refract
+    )
     misses = {}
     for angle, column in recorded.items():
         miss = (
@@ -900,6 +934,13 @@ class Spec:
     read; `expected` is the {signal: value} map for the ones that must read
     something specific. Being a dict, `expected` merges on override(), so a
     notebook can pin one more signal without restating the rest.
+
+    `gaps` is the one check driven by a flag rather than by a list of signals,
+    every frame having an index to find them in. Turn it off for a frame whose
+    rows were selected rather than recorded: the daylight half of a day is
+    missing every night by construction, and calling that a gap in the record
+    would be reporting the question back as the answer. summarize() then leaves
+    the check out rather than showing it passed.
     """
 
     ranges: dict = field(default_factory=dict)
@@ -914,6 +955,7 @@ class Spec:
     stall_windows: dict = field(default_factory=dict)
     sentinel_value: object = DEFAULT_SENTINEL
     gap_factor: float = DEFAULT_GAP_FACTOR
+    gaps: bool = True
 
     def override(self, **changes) -> "Spec":
         """A copy with `changes` applied: dict fields merge, sequence fields replace."""
@@ -929,8 +971,13 @@ class Spec:
 
     def signals(self) -> dict[str, list[str]]:
         """The (check -> labels) this spec tests, whether they pass or not."""
+        # The timezone findings only arise from an offset that was inferred.
+        # Pinning utc_offset asserts the timezone instead of reading it off the
+        # angles, which leaves neither check anything to find -- and so nothing
+        # to claim as passed.
+        timezone = [ALL_SIGNALS] if self.solar and self.solar.utc_offset is None else []
         return {
-            "gap": [ALL_SIGNALS],
+            "gap": [ALL_SIGNALS] if self.gaps else [],
             "range": list(self.ranges),
             "equivalent": [_pair_label(a, b) for a, b in self.equivalent],
             "lesser": [_pair_label(a, b) for a, b in self.lesser],
@@ -938,8 +985,8 @@ class Spec:
             "constant": list(self.constant),
             "expected": list(self.expected),
             "sentinel": list(self.sentinel),
-            "utc": [ALL_SIGNALS] if self.solar else [],
-            "clock": [ALL_SIGNALS] if self.solar else [],
+            "utc": timezone,
+            "clock": timezone,
             "solar": list(self.solar.angles().values()) if self.solar else [],
         }
 
@@ -978,7 +1025,11 @@ def validate(data: pd.DataFrame, spec: Spec) -> pd.DataFrame:
     return pd.concat(
         [
             missing_signals(data, spec),
-            check_gaps(data, gap_factor=spec.gap_factor),
+            (
+                check_gaps(data, gap_factor=spec.gap_factor)
+                if spec.gaps
+                else _findings([])
+            ),
             check_ranges(data, spec.ranges),
             check_equivalent(data, spec.equivalent),
             check_lesser(data, spec.lesser),

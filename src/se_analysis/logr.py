@@ -50,6 +50,40 @@ def _field(block: dict[str, str], key: str) -> str:
     return "" if value == "nan" else value
 
 
+def channel_blocks(site_info: pd.DataFrame) -> list[tuple[str, dict[str, str]]]:
+    """The Sensor History blocks of a LOGR header, as (channel, {label: value}).
+
+    Sensor History is a flat key/value list in which every "Channel:" row opens a
+    new block, so this is where the repeating region gets cut into the per-channel
+    records parse_site_info() cannot represent. Within a block the first
+    occurrence of a label wins, and values arrive stripped.
+
+    Returned in file order, as pairs rather than a mapping: the header is a
+    transcript, and a channel reconfigured part way through the record appears
+    twice. Whoever is reading gets to see that rather than have two blocks
+    silently merged.
+
+    What a block holds depends on the sensor -- a Modbus channel names both a
+    Sensor Type and a Measurand, an analog one neither. channel_names() is the
+    label built out of these; se_analysis.measurement reads the kind of
+    measurement a channel carries off the same fields.
+    """
+    info = site_info.set_axis(["key", "value"], axis=1)
+    keys = info["key"].astype(str).str.strip().str.rstrip(":")
+    # fillna after the cast: pandas 3.0 keeps missing values missing under
+    # astype(str), where earlier versions rendered them as the string "nan"
+    values = info["value"].astype(str).str.strip().fillna("")
+
+    blocks, current = [], None
+    for key, value in zip(keys, values):
+        if key == "Channel":
+            current = {}
+            blocks.append((value, current))
+        elif current is not None:
+            current.setdefault(key, value)
+    return blocks
+
+
 def channel_names(site_info: pd.DataFrame) -> dict[str, str]:
     """Parse reader.Site_info into {channel: 'Ch<n>_<sensor>_[<Measurand>_]<Units>'}.
 
@@ -63,23 +97,8 @@ def channel_names(site_info: pd.DataFrame) -> dict[str, str]:
     it "Type", so both are tried. They do not overlap: a LOGR header has no bare
     "Type" key, and a cloud export has no "Sensor Type".
     """
-    info = site_info.set_axis(["key", "value"], axis=1)
-    keys = info["key"].astype(str).str.strip().str.rstrip(":")
-    # fillna after the cast: pandas 3.0 keeps missing values missing under
-    # astype(str), where earlier versions rendered them as the string "nan"
-    values = info["value"].astype(str).str.strip().fillna("")
-
-    # Sensor History is a flat key/value list; each "Channel:" row starts a new block
-    blocks, current = [], None
-    for key, value in zip(keys, values):
-        if key == "Channel":
-            current = {}
-            blocks.append((value, current))
-        elif current is not None:
-            current.setdefault(key, value)
-
     names = {}
-    for channel, block in blocks:
+    for channel, block in channel_blocks(site_info):
         sensor = (
             _field(block, "Description")
             or _field(block, "Sensor Type")  # LOGR
@@ -299,6 +318,26 @@ def _reject_malformed(reader: nrgpy.LogrRead, directory: Path, action: str) -> N
     warnings.warn(f"{message} Dropped; see reader.malformed.", stacklevel=3)
 
 
+def _restore_site_info(reader: nrgpy.LogrRead) -> None:
+    """Put back the header metadata nrgpy drops when only one file matched.
+
+    concat_txt binds the variable it reads the *second* file into, then reads the
+    channel and site info off that variable unconditionally -- so a directory
+    holding a single file raises UnboundLocalError inside nrgpy, which catches it
+    and reports it as "No files match to contatenate." The data survives, being
+    assigned before that point, but everything after it is abandoned, including
+    the call that builds `Site_info`. The reader is then missing the header
+    entirely and says so only as an AttributeError from whatever reads it next.
+
+    Nothing has to be parsed again to fix it: the one file was read into
+    `reader.base`, header and all.
+    """
+    if hasattr(reader, "Site_info") or not hasattr(reader, "base"):
+        return
+    if hasattr(reader.base, "Site_info"):
+        reader.Site_info = reader.base.Site_info
+
+
 def read_files(
     directory, file_type: str = "log", malformed: str = "drop", **kwargs
 ) -> nrgpy.LogrRead:
@@ -318,7 +357,9 @@ def read_files(
     "raise" refuses the whole read; "keep" restores the old behaviour of
     concatenating them silently. See malformed_rows() for the detail.
 
-    Returns the reader, so `.data` and `.Site_info` stay available as usual.
+    Returns the reader, so `.data` and `.Site_info` stay available as usual --
+    including for a directory holding a single file, where nrgpy would otherwise
+    leave `.Site_info` unset (see _restore_site_info).
     """
     directory = Path(directory)
     if not directory.is_dir():
@@ -348,6 +389,7 @@ def read_files(
     if not getattr(reader, "file_count", 0):
         raise FileNotFoundError(_no_match(directory, file_type))
 
+    _restore_site_info(reader)
     _reject_malformed(reader, directory, malformed)
 
     return reader

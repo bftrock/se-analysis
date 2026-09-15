@@ -193,7 +193,7 @@ def _label(key) -> str:
     return str(key).strip().rstrip(":").replace("_", " ").lower()
 
 
-def _site_coordinates(site_info) -> tuple[float, float]:
+def site_coordinates(site_info) -> tuple[float, float]:
     """(latitude, longitude) in degrees, from Site_info in either of its forms.
 
     Takes what nrgpy hands back as `LogrRead.Site_info` -- the flat two-column
@@ -273,7 +273,7 @@ def get_normalization_window(
     latitude does not enter into when one happens. It is still read, so a header
     that cannot say where the site is fails here rather than at the next step.
     """
-    _, longitude = _site_coordinates(site_info)
+    _, longitude = site_coordinates(site_info)
     noon = _solar_noon(date, longitude).tz_localize("UTC")
     half = pd.Timedelta(half_width)
     return noon - half, noon + half

@@ -1,8 +1,9 @@
 """Shared helpers for ad hoc analyses in the notebooks/ directory."""
 
-from se_analysis import diagnostics, plot, protonode, shading, validation
+from se_analysis import diagnostics, measurement, plot, protonode, shading, validation
 from se_analysis.cloud import export_days, export_range
 from se_analysis.logr import (
+    channel_blocks,
     channel_names,
     malformed_rows,
     parse_site_info,
@@ -24,12 +25,14 @@ __all__ = [
     "NOTEBOOKS_DIR",
     "PROJECTS_DIR",
     "REPO_ROOT",
+    "channel_blocks",
     "channel_names",
     "diagnostics",
     "download",
     "export_days",
     "export_range",
     "malformed_rows",
+    "measurement",
     "parse_site_info",
     "plot",
     "project",
