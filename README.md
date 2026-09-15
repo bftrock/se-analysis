@@ -49,7 +49,7 @@ Projects/                                   <- the directory named in your .env
 │   │       ├── 20260904_0000_002682_001289.log
 │   │       └── 20260904_0000_002682_001289_statistical.dat
 │   └── Pierce-County_NE/                   <- multi-tower site: one directory per MET
-│       ├── Process_ProtoNode_File_Pierce-County_NE_MET1.ipynb
+│       ├── Validate_ProtoNode_File_Pierce-County_NE_MET1.ipynb
 │       ├── MET1/
 │       │   └── Pierce_MET1_MDC_TCP_192_168_2_8_ProtoNode_2026-07-10_15_22_04.txt
 │       └── MET2/
