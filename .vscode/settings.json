@@ -6,5 +6,18 @@
     "black-formatter.importStrategy": "fromEnvironment",
     // Notebooks are excluded from black; leave their cells alone on save.
     "notebook.formatOnSave.enabled": false,
-    "notebook.defaultFormatter": null
+    "notebook.defaultFormatter": null,
+    // Point VS Code at the uv-managed environment, so the Testing panel and the
+    // editor both find pytest and se_analysis without anyone picking an
+    // interpreter by hand.
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    "python.testing.pytestEnabled": true,
+    // Only pytest collects here; leaving unittest on makes VS Code run a second,
+    // always-empty discovery pass.
+    "python.testing.unittestEnabled": false,
+    // Named explicitly rather than left to the default ".", which would ask
+    // pytest to walk the whole repo including the notebooks.
+    "python.testing.pytestArgs": [
+        "tests"
+    ]
 }

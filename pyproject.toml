@@ -1,7 +1,7 @@
 [project]
 name = "se-analysis"
 version = "0.1.0"
-description = "Add your description here"
+description = "Analysis helpers for Solutions Engineering data QC"
 readme = "README.md"
 authors = [
     { name = "Brendan Taylor", email = "bft@nrgsystems.com" }
@@ -25,7 +25,15 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "black>=26.5.1",
+    "pytest>=9.0.1",
 ]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Tests assert on physical quantities, so a bare `assert a == b` on floats is
+# almost never what is meant; -q keeps the run readable from a notebook terminal.
+addopts = "-q --strict-markers"
 
 
 [tool.black]
